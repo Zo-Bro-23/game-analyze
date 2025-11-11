@@ -1,0 +1,21 @@
+# Files to ignore during Railway deployment
+*.jpg
+*.png
+*.mp4
+*.avi
+*.mov
+*.mkv
+video*.mp4
+frame_*.jpg
+uploads/*
+!.gitkeep
+
+# Keep only essential files
+# Railway will use:
+# - web_app_backend.py
+# - requirements_web.txt
+# - railway.json
+# - nixpacks.toml
+# - Procfile
+# - runtime.txt
+
