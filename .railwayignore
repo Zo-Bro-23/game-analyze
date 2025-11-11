@@ -1,21 +1,26 @@
 # Files to ignore during Railway deployment
-*.jpg
-*.png
-*.mp4
-*.avi
-*.mov
-*.mkv
+
+_.jpg
+_.png
+_.mp4
+_.avi
+_.mov
+_.mkv
 video*.mp4
-frame_*.jpg
-uploads/*
+frame\_*.jpg
+uploads/\*
 !.gitkeep
 
 # Keep only essential files
-# Railway will use:
-# - web_app_backend.py
-# - requirements_web.txt
-# - railway.json
-# - nixpacks.toml
-# - Procfile
-# - runtime.txt
 
+# Railway will use:
+
+# - web_app_backend.py (Flask app that serves both API and frontend)
+
+# - web_app_frontend.html (Frontend served from root route)
+
+# - requirements_web.txt (Python dependencies)
+
+# - nixpacks.toml (System dependencies)
+
+# - Procfile (Start command)

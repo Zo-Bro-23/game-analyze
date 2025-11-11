@@ -281,7 +281,8 @@
     </div>
 
     <script>
-      const API_BASE = "http://localhost:5000/api";
+      // Automatically detect API base URL (works for both localhost and Railway)
+      const API_BASE = window.location.origin + "/api";
 
       let videoFile = null;
       let videoMetadata = null;

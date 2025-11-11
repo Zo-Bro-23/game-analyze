@@ -3,7 +3,7 @@ Flask backend for video pose analysis web app.
 This reuses your existing analysis code.
 """
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import cv2
 import mediapipe as mp
@@ -13,18 +13,10 @@ import tempfile
 import base64
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.')
 
-# Configure CORS - allow Railway domain and localhost for development
-# Update CORS_ORIGINS environment variable in Railway dashboard if needed
-cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8000,http://localhost:3000,https://game-analyze.up.railway.app').split(',')
-CORS(app, resources={
-    r"/api/*": {
-        "origins": cors_origins,
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
+# Configure CORS - allow all origins since we're serving frontend from same domain
+CORS(app)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -118,6 +110,12 @@ def analyze_frame(frame, pose):
         return annotated, keypoints, True
     else:
         return annotated, [], False
+
+
+@app.route('/')
+def index():
+    """Serve the frontend HTML file."""
+    return send_from_directory('.', 'web_app_frontend.html')
 
 
 @app.route('/api/health', methods=['GET'])
