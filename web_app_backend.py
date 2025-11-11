@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 # Configure CORS - allow Railway domain and localhost for development
 # Update CORS_ORIGINS environment variable in Railway dashboard if needed
-cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8000,http://localhost:3000').split(',')
+cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:8000,http://localhost:3000,https://game-analyze.up.railway.app').split(',')
 CORS(app, resources={
     r"/api/*": {
         "origins": cors_origins,
