@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Pose Analysis</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: #1a1a1a;
+        color: #fff;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #4caf50;
+      }
+
+      .upload-section {
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .upload-area {
+        border: 2px dashed #4caf50;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .upload-area:hover {
+        background: #333;
+        border-color: #66bb6a;
+      }
+
+      .upload-area.dragover {
+        background: #3a3a3a;
+        border-color: #81c784;
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      .video-section {
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .video-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      video {
+        width: 100%;
+        border-radius: 10px;
+      }
+
+      .controls {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+      }
+
+      button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s;
+      }
+
+      button:hover {
+        background: #45a049;
+      }
+
+      button:disabled {
+        background: #666;
+        cursor: not-allowed;
+      }
+
+      .frame-info {
+        text-align: center;
+        margin: 10px 0;
+        font-size: 14px;
+        color: #aaa;
+      }
+
+      .slider-container {
+        width: 100%;
+        margin: 20px 0;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: #444;
+        outline: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #4caf50;
+        cursor: pointer;
+      }
+
+      .canvas-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        margin: 20px auto;
+      }
+
+      canvas {
+        width: 100%;
+        border-radius: 10px;
+        display: none;
+      }
+
+      .overlay-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .toggle-switch {
+        position: relative;
+        width: 50px;
+        height: 24px;
+        background: #666;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      .toggle-switch.active {
+        background: #4caf50;
+      }
+
+      .toggle-switch::after {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: white;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.3s;
+      }
+
+      .toggle-switch.active::after {
+        transform: translateX(26px);
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .loading.active {
+        display: block;
+      }
+
+      .spinner {
+        border: 3px solid #333;
+        border-top: 3px solid #4caf50;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .error {
+        background: #f44336;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        display: none;
+      }
+
+      .error.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎥 Video Pose Analysis</h1>
+
+      <div class="upload-section">
+        <div class="upload-area" id="uploadArea">
+          <p>📁 Drag and drop video file here or click to browse</p>
+          <input type="file" id="fileInput" accept="video/*" />
+        </div>
+        <div class="error" id="errorMessage"></div>
+      </div>
+
+      <div class="video-section" id="videoSection" style="display: none">
+        <div class="video-container">
+          <video id="videoPlayer" controls></video>
+          <canvas id="overlayCanvas"></canvas>
+        </div>
+
+        <div class="frame-info">
+          <span
+            >Frame: <span id="currentFrame">0</span> /
+            <span id="totalFrames">0</span></span
+          >
+          <span style="margin-left: 20px"
+            >Time: <span id="currentTime">0:00</span> /
+            <span id="totalTime">0:00</span></span
+          >
+        </div>
+
+        <div class="slider-container">
+          <input type="range" id="frameSlider" min="0" max="0" value="0" />
+        </div>
+
+        <div class="controls">
+          <button id="playPauseBtn">⏸ Pause</button>
+          <button id="prevFrameBtn">⏮ Prev Frame</button>
+          <button id="nextFrameBtn">Next Frame ⏭</button>
+          <button id="analyzeBtn">🔍 Analyze Frame</button>
+          <div class="overlay-toggle">
+            <span>Show Overlay:</span>
+            <div class="toggle-switch" id="overlayToggle"></div>
+          </div>
+        </div>
+
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p>Analyzing frame...</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:5000/api";
+
+      let videoFile = null;
+      let videoMetadata = null;
+      let currentFrameIndex = 0;
+      let showOverlay = false;
+      let annotatedImage = null;
+
+      // DOM elements
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const videoSection = document.getElementById("videoSection");
+      const videoPlayer = document.getElementById("videoPlayer");
+      const overlayCanvas = document.getElementById("overlayCanvas");
+      const frameSlider = document.getElementById("frameSlider");
+      const currentFrameSpan = document.getElementById("currentFrame");
+      const totalFramesSpan = document.getElementById("totalFrames");
+      const currentTimeSpan = document.getElementById("currentTime");
+      const totalTimeSpan = document.getElementById("totalTime");
+      const playPauseBtn = document.getElementById("playPauseBtn");
+      const prevFrameBtn = document.getElementById("prevFrameBtn");
+      const nextFrameBtn = document.getElementById("nextFrameBtn");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      const overlayToggle = document.getElementById("overlayToggle");
+      const loading = document.getElementById("loading");
+      const errorMessage = document.getElementById("errorMessage");
+
+      // Upload area handlers
+      uploadArea.addEventListener("click", () => fileInput.click());
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+      });
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+
+      async function handleFile(file) {
+        videoFile = file;
+        hideError();
+
+        const formData = new FormData();
+        formData.append("video", file);
+
+        try {
+          showLoading();
+          const response = await fetch(`${API_BASE}/upload`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("Upload failed");
+          }
+
+          videoMetadata = await response.json();
+          setupVideo(file);
+          hideLoading();
+        } catch (error) {
+          showError("Failed to upload video: " + error.message);
+          hideLoading();
+        }
+      }
+
+      function setupVideo(file) {
+        const url = URL.createObjectURL(file);
+        videoPlayer.src = url;
+        videoSection.style.display = "block";
+
+        frameSlider.max = videoMetadata.total_frames - 1;
+        totalFramesSpan.textContent = videoMetadata.total_frames;
+        totalTimeSpan.textContent = formatTime(videoMetadata.duration);
+
+        // Sync canvas with video
+        videoPlayer.addEventListener("loadedmetadata", () => {
+          overlayCanvas.width = videoPlayer.videoWidth;
+          overlayCanvas.height = videoPlayer.videoHeight;
+        });
+
+        // Update frame info when video plays
+        videoPlayer.addEventListener("timeupdate", () => {
+          const frame = Math.floor(videoPlayer.currentTime * videoMetadata.fps);
+          currentFrameIndex = frame;
+          frameSlider.value = frame;
+          currentFrameSpan.textContent = frame;
+          currentTimeSpan.textContent = formatTime(videoPlayer.currentTime);
+          updateOverlay();
+        });
+
+        // Frame slider
+        frameSlider.addEventListener("input", (e) => {
+          const frame = parseInt(e.target.value);
+          seekToFrame(frame);
+        });
+
+        // Controls
+        playPauseBtn.addEventListener("click", () => {
+          if (videoPlayer.paused) {
+            videoPlayer.play();
+            playPauseBtn.textContent = "⏸ Pause";
+          } else {
+            videoPlayer.pause();
+            playPauseBtn.textContent = "▶ Play";
+          }
+        });
+
+        prevFrameBtn.addEventListener("click", () => {
+          seekToFrame(currentFrameIndex - 1);
+        });
+
+        nextFrameBtn.addEventListener("click", () => {
+          seekToFrame(currentFrameIndex + 1);
+        });
+
+        analyzeBtn.addEventListener("click", analyzeCurrentFrame);
+
+        overlayToggle.addEventListener("click", () => {
+          showOverlay = !showOverlay;
+          overlayToggle.classList.toggle("active", showOverlay);
+          updateOverlay();
+        });
+      }
+
+      function seekToFrame(frame) {
+        frame = Math.max(0, Math.min(frame, videoMetadata.total_frames - 1));
+        currentFrameIndex = frame;
+        const time = frame / videoMetadata.fps;
+        videoPlayer.currentTime = time;
+        frameSlider.value = frame;
+        currentFrameSpan.textContent = frame;
+        currentTimeSpan.textContent = formatTime(time);
+        updateOverlay();
+      }
+
+      async function analyzeCurrentFrame() {
+        if (!videoMetadata) return;
+
+        try {
+          showLoading();
+          analyzeBtn.disabled = true;
+
+          const response = await fetch(
+            `${API_BASE}/video/${videoMetadata.filename}/analyze`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                frame_index: currentFrameIndex,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Analysis failed");
+          }
+
+          const result = await response.json();
+          annotatedImage = result.annotated_image;
+
+          // Draw overlay
+          updateOverlay();
+
+          hideLoading();
+          analyzeBtn.disabled = false;
+        } catch (error) {
+          showError("Failed to analyze frame: " + error.message);
+          hideLoading();
+          analyzeBtn.disabled = false;
+        }
+      }
+
+      function updateOverlay() {
+        const ctx = overlayCanvas.getContext("2d");
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        if (showOverlay && annotatedImage) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, overlayCanvas.width, overlayCanvas.height);
+            // Draw overlay on top of video
+            overlayCanvas.style.display = "block";
+          };
+          img.src = annotatedImage;
+        } else {
+          overlayCanvas.style.display = "none";
+        }
+      }
+
+      function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+      }
+
+      function showLoading() {
+        loading.classList.add("active");
+      }
+
+      function hideLoading() {
+        loading.classList.remove("active");
+      }
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.add("active");
+      }
+
+      function hideError() {
+        errorMessage.classList.remove("active");
+      }
+    </script>
+  </body>
+</html>
