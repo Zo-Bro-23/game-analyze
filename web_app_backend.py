@@ -262,7 +262,7 @@ def analyze_batch_frames(filename):
 if __name__ == '__main__':
     # Use PORT environment variable (Railway sets this automatically)
     # Default to 5000 for local development
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 1200))
     # Disable debug mode in production
     debug = os.environ.get('FLASK_ENV') == 'development'
     app.run(host='0.0.0.0', port=port, debug=debug)

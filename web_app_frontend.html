@@ -77,6 +77,7 @@
       video {
         width: 100%;
         border-radius: 10px;
+        pointer-events: none; /* Disable video controls interaction */
       }
 
       .controls {
@@ -137,53 +138,29 @@
         cursor: pointer;
       }
 
-      .canvas-container {
-        position: relative;
-        width: 100%;
-        max-width: 800px;
-        margin: 20px auto;
-      }
-
       canvas {
         width: 100%;
         border-radius: 10px;
         display: none;
+        max-width: 800px;
       }
 
-      .overlay-toggle {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+      .overlay-container {
+        width: 100%;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+        display: none;
       }
 
-      .toggle-switch {
-        position: relative;
-        width: 50px;
-        height: 24px;
-        background: #666;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background 0.3s;
+      .overlay-container.active {
+        display: block;
+        margin-top: 20px;
       }
 
-      .toggle-switch.active {
-        background: #4caf50;
-      }
-
-      .toggle-switch::after {
-        content: "";
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: white;
-        top: 2px;
-        left: 2px;
-        transition: transform 0.3s;
-      }
-
-      .toggle-switch.active::after {
-        transform: translateX(26px);
+      .overlay-container canvas {
+        display: block;
+        margin: 0 auto;
       }
 
       .loading {
@@ -243,8 +220,7 @@
 
       <div class="video-section" id="videoSection" style="display: none">
         <div class="video-container">
-          <video id="videoPlayer" controls></video>
-          <canvas id="overlayCanvas"></canvas>
+          <video id="videoPlayer"></video>
         </div>
 
         <div class="frame-info">
@@ -263,14 +239,14 @@
         </div>
 
         <div class="controls">
-          <button id="playPauseBtn">⏸ Pause</button>
+          <button id="playPauseBtn">▶ Play</button>
           <button id="prevFrameBtn">⏮ Prev Frame</button>
           <button id="nextFrameBtn">Next Frame ⏭</button>
           <button id="analyzeBtn">🔍 Analyze Frame</button>
-          <div class="overlay-toggle">
-            <span>Show Overlay:</span>
-            <div class="toggle-switch" id="overlayToggle"></div>
-          </div>
+        </div>
+
+        <div class="overlay-container" id="overlayContainer">
+          <canvas id="overlayCanvas"></canvas>
         </div>
 
         <div class="loading" id="loading">
@@ -287,8 +263,8 @@
       let videoFile = null;
       let videoMetadata = null;
       let currentFrameIndex = 0;
-      let showOverlay = false;
       let annotatedImage = null;
+      let isPlaying = false;
 
       // DOM elements
       const uploadArea = document.getElementById("uploadArea");
@@ -305,7 +281,7 @@
       const prevFrameBtn = document.getElementById("prevFrameBtn");
       const nextFrameBtn = document.getElementById("nextFrameBtn");
       const analyzeBtn = document.getElementById("analyzeBtn");
-      const overlayToggle = document.getElementById("overlayToggle");
+      const overlayContainer = document.getElementById("overlayContainer");
       const loading = document.getElementById("loading");
       const errorMessage = document.getElementById("errorMessage");
 
@@ -375,6 +351,21 @@
           overlayCanvas.height = videoPlayer.videoHeight;
         });
 
+        // Disable right-click context menu on video
+        videoPlayer.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+        });
+
+        // Prevent default video controls
+        videoPlayer.controls = false;
+        videoPlayer.addEventListener("play", () => {
+          isPlaying = true;
+          hideOverlay();
+        });
+        videoPlayer.addEventListener("pause", () => {
+          isPlaying = false;
+        });
+
         // Update frame info when video plays
         videoPlayer.addEventListener("timeupdate", () => {
           const frame = Math.floor(videoPlayer.currentTime * videoMetadata.fps);
@@ -382,7 +373,10 @@
           frameSlider.value = frame;
           currentFrameSpan.textContent = frame;
           currentTimeSpan.textContent = formatTime(videoPlayer.currentTime);
-          updateOverlay();
+          // Hide overlay when playing
+          if (isPlaying) {
+            hideOverlay();
+          }
         });
 
         // Frame slider
@@ -396,9 +390,12 @@
           if (videoPlayer.paused) {
             videoPlayer.play();
             playPauseBtn.textContent = "⏸ Pause";
+            isPlaying = true;
+            hideOverlay();
           } else {
             videoPlayer.pause();
             playPauseBtn.textContent = "▶ Play";
+            isPlaying = false;
           }
         });
 
@@ -411,23 +408,24 @@
         });
 
         analyzeBtn.addEventListener("click", analyzeCurrentFrame);
-
-        overlayToggle.addEventListener("click", () => {
-          showOverlay = !showOverlay;
-          overlayToggle.classList.toggle("active", showOverlay);
-          updateOverlay();
-        });
       }
 
       function seekToFrame(frame) {
         frame = Math.max(0, Math.min(frame, videoMetadata.total_frames - 1));
         currentFrameIndex = frame;
         const time = frame / videoMetadata.fps;
+        // Pause video when seeking
+        if (!videoPlayer.paused) {
+          videoPlayer.pause();
+          playPauseBtn.textContent = "▶ Play";
+          isPlaying = false;
+        }
         videoPlayer.currentTime = time;
         frameSlider.value = frame;
         currentFrameSpan.textContent = frame;
         currentTimeSpan.textContent = formatTime(time);
-        updateOverlay();
+        // Hide overlay when frame changes (analyzed frame is no longer valid)
+        hideOverlay();
       }
 
       async function analyzeCurrentFrame() {
@@ -457,8 +455,10 @@
           const result = await response.json();
           annotatedImage = result.annotated_image;
 
-          // Draw overlay
-          updateOverlay();
+          // Show overlay automatically after analysis (only if video is paused)
+          if (videoPlayer.paused) {
+            showOverlay();
+          }
 
           hideLoading();
           analyzeBtn.disabled = false;
@@ -469,21 +469,26 @@
         }
       }
 
-      function updateOverlay() {
+      function showOverlay() {
+        if (!annotatedImage) return;
+
         const ctx = overlayCanvas.getContext("2d");
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-        if (showOverlay && annotatedImage) {
-          const img = new Image();
-          img.onload = () => {
-            ctx.drawImage(img, 0, 0, overlayCanvas.width, overlayCanvas.height);
-            // Draw overlay on top of video
-            overlayCanvas.style.display = "block";
-          };
-          img.src = annotatedImage;
-        } else {
-          overlayCanvas.style.display = "none";
-        }
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, overlayCanvas.width, overlayCanvas.height);
+          overlayContainer.classList.add("active");
+          overlayCanvas.style.display = "block";
+        };
+        img.src = annotatedImage;
+      }
+
+      function hideOverlay() {
+        const ctx = overlayCanvas.getContext("2d");
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        overlayContainer.classList.remove("active");
+        overlayCanvas.style.display = "none";
       }
 
       function formatTime(seconds) {
